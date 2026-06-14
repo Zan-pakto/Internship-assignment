@@ -26,7 +26,7 @@ The system checks every imported row and logs anomalies in the `import_anomalies
 
 ### 2. `MISSING_DESCRIPTION`
 * **Condition:** Description is blank or empty.
-* **Action:** **Auto-Correct** (Assigned default description `Imported Expense - Row [N]`) and proceed with import.
+* **Action:** **Pending Approval** (Assigned default description `Imported Expense - Row [N]`, sent to user to approve or reject).
 
 ### 3. `INVALID_AMOUNT`
 * **Condition:** Amount column is not a number, empty, or <= 0.
@@ -53,4 +53,62 @@ The system checks every imported row and logs anomalies in the `import_anomalies
 
 ### 8. `DUPLICATE_EXPENSE`
 * **Condition:** An expense with the same description, amount, group, payer, and date already exists in the database.
-* **Action:** **Skip Row** (prevents duplicate charging).
+* **Action:** **Pending Approval** (prevents duplicate charging without explicit user approval).
+
+### 9. `SETTLEMENT_ROW`
+* **Condition:** CSV row represents a settlement/payment instead of a normal expense (e.g., description matches `payment`, `settlement`, `refund`, `transfer`, `repayment`, `payback`).
+* **Action:** **Pending Approval** (row is not directly created as Expense; ImportApproval is created and after approval it becomes a Settlement).
+
+---
+
+## 3. Database Schema
+
+Based on the actual Prisma schema, the following models are used:
+
+### 1. `User`
+* **Purpose:** Represents a registered user on the platform.
+* **Important Fields:** `id`, `email`, `passwordHash`, `name`, `createdAt`.
+* **Relationships:** Can create groups, be a group member, pay expenses, participate in splits, and send/receive settlements.
+* **Why it exists:** Core authentication and identity tracking.
+
+### 2. `Group`
+* **Purpose:** Represents a shared group where expenses are split.
+* **Important Fields:** `id`, `name`, `creatorId`, `createdAt`.
+* **Relationships:** Belongs to a creator (`User`), contains `members` (`GroupMember`), `expenses`, and `settlements`.
+* **Why it exists:** Isolates expenses and debts among a specific set of users.
+
+### 3. `GroupMember`
+* **Purpose:** Tracks a user's membership in a group over time.
+* **Important Fields:** `isActive`, `joinedAt`, `leftAt`.
+* **Relationships:** Links a `User` to a `Group`.
+* **Why it exists:** Implements soft-deletion so historical expenses remain mathematically correct even if a member leaves.
+
+### 4. `Expense`
+* **Purpose:** Represents a single group expense.
+* **Important Fields:** `amount` (converted), `originalAmount`, `originalCurrency`, `convertedAmount`, `description`, `createdAt`.
+* **Relationships:** Linked to a `Group` and a `User` (payer). Has multiple `splits`.
+* **Why it exists:** The core financial record driving debts in the group.
+
+### 5. `ExpenseSplit`
+* **Purpose:** Details how an expense is divided among participants.
+* **Important Fields:** `amount`, `splitValue`, `splitType` (`EQUAL`, `UNEQUAL`, `PERCENTAGE`, `SHARE`).
+* **Relationships:** Linked to an `Expense` and a `User` (participant).
+* **Why it exists:** Stores the exact debt portion each user owes for an expense.
+
+### 6. `Settlement`
+* **Purpose:** Records a peer-to-peer repayment within a group.
+* **Important Fields:** `amount`, `createdAt`.
+* **Relationships:** Linked to a `Group`, a `sender` (payer), and a `receiver`.
+* **Why it exists:** Offsets group debts without creating a shared expense.
+
+### 7. `ImportAnomaly`
+* **Purpose:** Logs validation errors or soft anomalies during CSV imports.
+* **Important Fields:** `rowNumber`, `anomalyType`, `description`, `actionTaken`.
+* **Relationships:** Belongs to an `Import` and can have `approvals`.
+* **Why it exists:** Provides an audit trail for failed or flagged import rows.
+
+### 8. `ImportApproval`
+* **Purpose:** Holds row data for soft anomalies awaiting user action.
+* **Important Fields:** `action`, `status` (`PENDING`, `APPROVED`, `REJECTED`), `rowData`, `approvedBy`.
+* **Relationships:** Linked to an `ImportAnomaly`.
+* **Why it exists:** Powers the interactive approval workflow for settlements, duplicates, and missing descriptions.
