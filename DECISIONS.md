@@ -25,3 +25,8 @@ This document summarizes the architectural and implementation decisions made dur
 ## 6. Vercel SPA Routing Configuration
 * **Decision:** Added a `vercel.json` file with wildcard rewrite rules pointing to `index.html`.
 * **Rationale:** Fixes the standard React SPA issue on Vercel where browser page refreshes on sub-routes (`/dashboard`, `/group/:id`) throw Vercel 404 NOT FOUND errors.
+
+## 7. CSV Settlement Import Anomaly Detection
+* **Decision:** CSV rows representing settlements/payments (detected by keywords in the description) are flagged as `SETTLEMENT_ROW` anomalies and routed through the existing approval workflow.
+* **Rationale:** Prevents importing peer-to-peer debt settlements as group expenses, preserving ledger integrity, while allowing users to approve and record them correctly.
+
