@@ -1,41 +1,84 @@
-# AI Usage & Collaboration
+# AI Tools Used
 
-This document outlines how the AI developer assistant (Antigravity) was utilized to implement and test the Splitwise clone features.
+During the development of this Splitwise Clone, the following AI tools were utilized:
+- **ChatGPT** (OpenAI)
+- **Antigravity** (Google DeepMind Advanced Agentic Coding Assistant)
 
-## 1. Task Definition & Plan Generation
-* The AI generated and updated structured plans (`BUILD_PLAN.md` and `AI_CONTEXT.md`) based on user specifications.
-* The system boundaries, anomaly rules, and database schema mappings were established cooperatively prior to code changes.
+AI assistance was instrumental across multiple phases of the project:
+- **Code Review**: AI helped perform comprehensive requirement audits against the assignment guidelines, identifying missing edge cases.
+- **Debugging**: AI assisted in tracing and resolving issues such as Prisma schema mismatches and API route failures.
+- **Documentation**: AI was used to draft and format structural documents like `SCOPE.md`, `DECISIONS.md`, and `README.md`.
+- **Architecture Discussions**: AI helped brainstorm and design decoupled logic for split calculations, multi-currency conversion, and the CSV anomaly approval workflow.
 
-## 2. Code Generation & Iterative Refactoring
-* **Backend:** The AI generated the custom CSV parser (`csvParser.js`), validation engine (`anomalyDetector.js`), and import service (`importService.js`).
-* **Frontend:** The AI updated the main Dashboard view (`Dashboard.jsx`) to embed the CSV file input dropzone, processing status banners, and reactive anomaly validation reports.
-* **Refactoring:** The AI identified duplicate logic in split calculation and updated `expenseController.js` to export a unified helper `calculateSplits`, reducing code duplication.
+---
 
-## 3. Database Migration & Local Environment Configuration
-* The AI generated schema modifications for the PostgreSQL database via Prisma client models.
-* Assisted in troubleshooting connection pool issues by migrating database credentials to a local PostgreSQL container, stabilizing development.
+# Key Prompts Used
 
-## 4. End-to-End Testing & Verification
-* The AI designed and executed a local NodeJS integration script (`backend/src/testImport.js`) to automatically verify user/group seeding, transaction logic, rounding correction, and each of the 8 anomaly edge-cases.
-* Created a sample spreadsheet file (`expenses_export.csv`) to test file uploads inside the browser environment.
+Below are examples of key prompts used during development across different categories:
 
-## 5. Key Prompts Used
-- *"Perform a complete requirement audit of the Splitwise clone codebase against the assignment requirements."*
-- *"Preserve negative signs during CSV parsing and detect negative amounts as hard anomalies."*
-- *"Implement an approval workflow for CSV import anomalies, and add the DB schema to track historical memberships and approvals."*
-- *"Update the dynamic balance calculation to support date-aware membership active boundaries and implement the debt simplification (Who Pays Whom) algorithm."*
+1. **Architecture planning prompt**
+   - *"Design a relational database schema for a Splitwise clone that supports soft deletion for group members, ensuring historical expenses remain mathematically correct even if a member leaves the group."*
 
-## 6. AI Mistakes & Fixes
-Here are three specific coding mistakes introduced during AI development and how they were resolved:
+2. **Code review/audit prompt**
+   - *"You are a senior software engineer reviewing my completed project. Perform a complete requirement audit of the Splitwise clone codebase against every requirement from the assignment. Mark status and explain where it exists."*
 
-1. **Prisma Client Database Upsert Parameter Mismatch**
-   - *Mistake:* The AI attempted to register users in the scratch test suite using the `password` field, which was not defined in the Prisma database schema.
-   - *Resolution:* Cross-referenced `schema.prisma` to verify that `passwordHash` was the required field name and corrected the test parameters.
+3. **CSV importer/anomaly handling prompt**
+   - *"Implement a custom CSV parser and anomaly detector for expense imports. It must validate dates, amounts, descriptions, and verify that the group, payer, and all participants actually exist before importing."*
 
-2. **Negative Signs Sanitized in CSV Import**
-   - *Mistake:* In the initial anomaly detector code, the AI sanitized amounts using `row.amount.replace(/[^0-9.]/g, '')`, which stripped out negative signs (`-`) and converted negative amounts to positive numbers.
-   - *Resolution:* Updated the regex pattern to preserve the negative sign (`/[^0-9.-]/g`) so that negative numbers are preserved and flagged as invalid amount anomalies.
+4. **Database schema review prompt**
+   - *"Review my Prisma schema. Verify that the 'ImportApproval' and 'ImportAnomaly' models correctly link together and can support JSON payloads for row data."*
 
-3. **Unequal Split Currency Validation Failure**
-   - *Mistake:* When calculating unequal splits for multi-currency transactions, the AI initially attempted to validate splits in the base currency (INR) against the original amount (USD), resulting in a mathematical mismatch validation failure.
-   - *Resolution:* Refactored the split calculations to validate sums in the original input currency first, then convert each itemized split amount to INR dynamically.
+5. **Bug fixing prompt**
+   - *"Fix the 'Cannot read properties of undefined (reading 'create')' error occurring during CSV expense imports in the Splitwise clone application. Check the Prisma client mapping and transactions."*
+
+---
+
+# AI Mistakes & Corrections
+
+## Case 1: Incorrect Member Deletion Approach
+
+**AI Output:**
+AI suggested deleting group members permanently from the database when they leave a group.
+
+**How detected:**
+Reviewed assignment requirement and noticed historical expenses would break if the user record was completely removed from the group.
+
+**Fix:**
+Implemented soft deletion using:
+- `isActive`
+- `leftAt`
+
+---
+
+## Case 2: CSV Negative Amount Handling
+
+**AI Output:**
+AI sanitization logic converted negative amounts into positive values.
+
+**How detected:**
+Code review of CSV parser showed `"-"` sign removal in the regex `/^[^0-9.]/g`.
+
+**Fix:**
+Preserved negative values and added anomaly detection to explicitly flag them as invalid amounts.
+
+---
+
+## Case 3: Settlement Imported As Expense
+
+**AI Output:**
+AI treated payment/settlement rows as normal expenses.
+
+**How detected:**
+Compared CSV business rules with expense calculation flow and realized settlements were throwing off group debt balances.
+
+**Fix:**
+Added `SETTLEMENT_ROW` anomaly detection and routed it through the approval workflow to be converted into a `Settlement` record rather than an `Expense`.
+
+---
+
+# Final Notes
+
+All AI-generated suggestions were reviewed manually. No AI output was accepted without checking against:
+- assignment requirements
+- database design
+- application logic
