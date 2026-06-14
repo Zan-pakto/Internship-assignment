@@ -170,6 +170,38 @@ const Dashboard = () => {
     }
   };
 
+  const handleDownloadReport = () => {
+    if (!importReport) return;
+
+    const pendingApprovalsCount = importReport.anomalies.filter(a => a.actionTaken === 'Pending Approval').length;
+    const failedRowsCount = importReport.statistics.skippedRowsCount;
+
+    const reportData = {
+      importDate: new Date(importReport.createdAt).toLocaleString(),
+      totalRowsProcessed: "N/A (Not tracked in anomalies)",
+      successfulRows: "N/A",
+      failedRows: failedRowsCount,
+      pendingApprovals: pendingApprovalsCount,
+      anomalies: importReport.anomalies.map(a => ({
+        rowNumber: a.rowNumber,
+        anomalyType: a.anomalyType,
+        description: a.description,
+        actionTaken: a.actionTaken,
+        approvalStatus: a.actionTaken === 'Pending Approval' ? 'PENDING' : 'N/A'
+      }))
+    };
+
+    const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `import_report_${importReport.id}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const netOverall = Number((totalOwedToYou - totalYouOwe).toFixed(2));
 
   return (
@@ -614,7 +646,14 @@ const Dashboard = () => {
                     )}
                   </div>
 
-                  <div className="flex justify-end pt-2">
+                  <div className="flex justify-end pt-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={handleDownloadReport}
+                      className="rounded-xl bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-5 py-2.5 text-sm font-semibold transition-all shadow-sm"
+                    >
+                      Download Import Report
+                    </button>
                     <button
                       type="button"
                       onClick={() => {
